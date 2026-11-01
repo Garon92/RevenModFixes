@@ -1,0 +1,11 @@
+[
+  {
+    "modid": "aethervoid",
+    "name": "Aether Void",
+    "description": "Falling out of the Aether drops you into the void instead of the Overworld.",
+    "version": "${version}",
+    "mcversion": "1.7.10",
+    "authorList": ["dmuzik"],
+    "dependencies": []
+  }
+]
