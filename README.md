@@ -1,14 +1,16 @@
-# Úpravy The Aether a MedicineCraft (Forge 1.7.10)
+# Opravy modů pro Forge 1.7.10
 
-Dva malé samostatné mody, které mění chování cizích modů bez zásahu do jejich jarů. Originály zůstávají
+Tři malé samostatné mody, které mění chování cizích modů bez zásahu do jejich jarů. Originály zůstávají
 beze změny, jary z téhle složky se jen přidají vedle nich do `mods`. Hráči nemusí nic instalovat.
 
 | Jar | Co dělá | Config |
 |---|---|---|
 | [`dist/AetherVoid-1.0.0.jar`](dist/AetherVoid-1.0.0.jar) | Pád z Aetheru skončí ve voidu místo v Overworldu | `config/aethervoid.cfg` |
 | [`dist/PlasticOreToggle-1.0.0.jar`](dist/PlasticOreToggle-1.0.0.jar) | Vypne generaci Plastic Ore z MedicineCraftu | `config/plasticoretoggle.cfg` |
+| [`dist/DedicatedServerFix-1.0.0.jar`](dist/DedicatedServerFix-1.0.0.jar) | Opraví pády dedikovaného serveru kvůli Glacii a dalším modům | žádný |
 
-Každý funguje sám. Pro singleplayer patří jar do `mods` v klientovi.
+Každý funguje sám. Pro singleplayer patří Aether Void a Plastic Ore Toggle do `mods` v klientovi, Dedicated Server Fix
+patří jen na dedikovaný server.
 
 ## Aether Void
 
@@ -42,6 +44,24 @@ B:generatePlasticOre=false    # true = ruda se generuje jako v originále
 ruda v už vygenerovaném světě zůstane. Blok, předmět i recepty MedicineCraftu dál existují. V logu serveru musí
 být `Plastic Ore generation is off`. Změna configu se projeví po restartu.
 
+## Dedicated Server Fix
+
+Vanilla Minecraft má některé metody jen v klientovi. Když je mod volá i z kódu, který běží na serveru, v singleplayeru
+a na LAN to projde, protože tam klientský kód je. Teprve dedikovaný server spadne na `NoSuchMethodError`. Proto modpack
+vyzkoušený na LAN může na skutečném serveru padat. Tenhle mod chybějící metody na dedikovaném serveru doplní:
+
+| Metoda | Kdo ji volá |
+|---|---|
+| `Block.isNormalCube` (`func_149637_q`) | Glacia: krystaly, portál, dveře |
+| `EntityPlayer.getItemInUseDuration` (`func_71057_bx`) | Betweenlands: `EntityVolatileSoul` (duše Wighta) |
+| `EntityLivingBase.getSwingProgress` (`func_70678_g`) | Betweenlands: elixír Swiftarm |
+| `FoodStats.setFoodLevel` (`func_75114_a`) | Betweenlands: elixír Starvation |
+| `WorldProvider.getCloudHeight` (`func_76571_f`) | Twilight Forest: Magic Beans |
+
+Pád serveru je otestovaný u Glacie, kde přijde pár sekund po vstupu do dimenze. U ostatních je volání vyčtené z jarů
+těch modů. Navíc mod zaregistruje dva tile entity Glacie, které Glacia registruje jen v klientovi. Bez toho server při každém ukládání
+světa píše do logu tisíce řádků `is missing a mapping`. Na klientovi mod nedělá nic a klient ho mít nemusí.
+
 ## Otestováno
 
 Na skutečném dedikovaném serveru Forge 1.7.10-10.13.4.1614 s originálními jary obou modů. Hráče představovali headless
@@ -65,11 +85,23 @@ klienti přes síťový protokol 1.7.10.
 | S modem, výchozí config | **0** | 27 551 |
 | S modem, `generatePlasticOre=true` | 11 819 | 27 547 |
 
-Oba mody prošly i společně s Dimension Control 1.0.1 na jednom serveru.
+**Dedicated Server Fix** ([`test/server-fix.js`](test/server-fix.js)):
+
+| | Výsledek |
+|---|---|
+| Bez modu | Metoda chybí, vstup do Glacie shodí server do 3 s |
+| S modem, všech 5 metod zavolaných přímo | Vrací správné hodnoty, kámen je plná kostka a sklo ne |
+| S modem, 60 s v Glacii a nové přihlášení přímo v ní | Server běží |
+| S modem, uložení světa | V logu není `missing a mapping` |
+| S modem, položení dveří Glacie a 30 000 vynucených ticků portálu na obtížnosti 2 | Server běží |
+
+Všechny tři mody běžely společně s Dimension Control 1.2.0, HQM The Journey, BetterQuesting a ostatními mody na jednom
+dedikovaném serveru při průchodu všemi 12 portály.
 
 **Netestováno:** singleplayer a skutečný herní klient. Testy běžely proti serveru, takže chybí kontrola
 na obrazovce hráče. Jezdec na mountu se v testu netýkal aetherských mountů (Moa, Phyg), ale prasete, které jde
-stejnou cestou v kódu.
+stejnou cestou v kódu. U Betweenlands a Twilight Forest test volal doplněné metody přímo, nespouštěl samotné elixíry,
+Wight ani fazole.
 
 ## Sestavení a testy
 

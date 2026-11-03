@@ -1,0 +1,11 @@
+[
+  {
+    "modid": "dedicatedserverfix",
+    "name": "Dedicated Server Fix",
+    "description": "Adds client-only vanilla methods that mods wrongly call on the server, so they stop crashing dedicated servers.",
+    "version": "${version}",
+    "mcversion": "1.7.10",
+    "authorList": ["dmuzik"],
+    "dependencies": []
+  }
+]

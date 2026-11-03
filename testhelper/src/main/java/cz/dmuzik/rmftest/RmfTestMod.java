@@ -31,7 +31,9 @@ import cpw.mods.fml.common.registry.GameData;
  * Test-only helper, never shipped. /rmf commands print to the server log as "RMF ..." lines for the test scripts:
  * mods, dims, where, move (hand-written transfer to a dimension), shaft (clears a column so nothing is in the way
  * of a fall), place, spawn (pig/item), tracked (what happened to the last spawned entity), mount, count (generates
- * chunks around a point and counts one block).
+ * chunks around a point and counts one block), items (registry names matching a filter), useitem (uses an item on
+ * a block like a player would), tickblock (forces random ticks on a block), sidecheck (calls the client-only methods
+ * DedicatedServerFix restores).
  */
 @Mod(modid = "rmftest", name = "RevenModFixes Test Helper", version = "1.0.0", acceptableRemoteVersions = "*")
 public class RmfTestMod {
@@ -50,7 +52,7 @@ public class RmfTestMod {
 
             @Override
             public String getCommandUsage(ICommandSender sender) {
-                return "/rmf <mods|dims|where|move|shaft|place|spawn|tracked|mount|count> ...";
+                return "/rmf <mods|dims|where|move|shaft|place|spawn|tracked|mount|count|items|useitem|tickblock|sidecheck> ...";
             }
 
             @Override
@@ -112,6 +114,30 @@ public class RmfTestMod {
                 } else if ("mount".equals(sub)) {
                     getPlayer(s, a[1]).mountEntity(tracked);
                     LOG.info("RMF mounted {}", a[1]);
+                } else if ("items".equals(sub)) {
+                    for (Object key : GameData.getItemRegistry().getKeys()) {
+                        if (((String) key).toLowerCase().contains(a[1])) {
+                            LOG.info("RMF item {}", key);
+                        }
+                    }
+                } else if ("useitem".equals(sub)) {
+                    EntityPlayerMP p = getPlayer(s, a[1]);
+                    ItemStack stack = new ItemStack(GameData.getItemRegistry().getObject(a[2]));
+                    boolean used = stack.tryPlaceItemIntoWorld(p, p.worldObj, parseInt(s, a[3]), parseInt(s, a[4]), parseInt(s, a[5]), 1, 0.5F, 0.5F, 0.5F);
+                    LOG.info("RMF used {} result={}", a[2], used);
+                } else if ("tickblock".equals(sub)) {
+                    WorldServer w = world(parseInt(s, a[1]));
+                    int x = parseInt(s, a[2]);
+                    int y = parseInt(s, a[3]);
+                    int z = parseInt(s, a[4]);
+                    int times = parseInt(s, a[5]);
+                    java.util.Random random = new java.util.Random(1);
+                    for (int i = 0; i < times; i++) {
+                        w.getBlock(x, y, z).updateTick(w, x, y, z, random);
+                    }
+                    LOG.info("RMF ticked {} times", times);
+                } else if ("sidecheck".equals(sub)) {
+                    sideCheck(getPlayer(s, a[1]));
                 } else if ("count".equals(sub)) {
                     count(a[1], parseInt(s, a[2]), parseInt(s, a[3]), parseInt(s, a[4]));
                 } else {
@@ -123,6 +149,26 @@ public class RmfTestMod {
 
     static WorldServer world(int dim) {
         return MinecraftServer.getServer().worldServerForDimension(dim);
+    }
+
+    /** Reflection, because these methods are not supposed to exist on a server and the names are SRG. */
+    static void sideCheck(EntityPlayerMP p) {
+        try {
+            Object stone = net.minecraft.block.Block.class.getMethod("func_149637_q").invoke(Blocks.stone);
+            Object glass = net.minecraft.block.Block.class.getMethod("func_149637_q").invoke(Blocks.glass);
+            Object duration = net.minecraft.entity.player.EntityPlayer.class.getMethod("func_71057_bx").invoke(p);
+            Object swing = net.minecraft.entity.EntityLivingBase.class.getMethod("func_70678_g", float.class).invoke(p, 0.5F);
+            int food = p.getFoodStats().getFoodLevel();
+            net.minecraft.util.FoodStats.class.getMethod("func_75114_a", int.class).invoke(p.getFoodStats(), 7);
+            int newFood = p.getFoodStats().getFoodLevel();
+            net.minecraft.util.FoodStats.class.getMethod("func_75114_a", int.class).invoke(p.getFoodStats(), food);
+            Object cloud = net.minecraft.world.WorldProvider.class.getMethod("func_76571_f").invoke(p.worldObj.provider);
+            LOG.info("RMF sidecheck ok stone={} glass={} duration={} swing={} food={} cloud={}", stone, glass, duration, swing, newFood, cloud);
+        } catch (NoSuchMethodException e) {
+            LOG.info("RMF sidecheck missing {}", e.getMessage());
+        } catch (Exception e) {
+            LOG.info("RMF sidecheck error {}", e);
+        }
     }
 
     /** Moves a player without any mod's teleporter, so the test decides exactly where they end up. */
